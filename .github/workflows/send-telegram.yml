@@ -1,0 +1,41 @@
+name: Send Portfolio Report to Telegram
+
+on:
+  push:
+    paths:
+      - 'report/**'
+      - '.github/workflows/send-telegram.yml'
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Send report parts to Telegram
+        env:
+          BOT_TOKEN: "8179402986:AAFSN5HdkW0bTyeaApDrnz0U5j89KhC8Ync"
+          CHAT_ID:   "8744177720"
+        run: |
+          set -e
+          for f in report/part1.txt report/part2.txt report/part3.txt report/part4.txt; do
+            echo "Sending $f ..."
+            TEXT="$(cat "$f")"
+            HTTP_CODE=$(curl -s -o /tmp/tg_resp.json -w "%{http_code}" \
+              -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=${CHAT_ID}" \
+              --data-urlencode "parse_mode=HTML" \
+              --data-urlencode "disable_web_page_preview=true" \
+              --data-urlencode "text=${TEXT}")
+            echo "HTTP=$HTTP_CODE"
+            cat /tmp/tg_resp.json
+            echo ""
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "::error::Telegram send failed for $f"
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "All parts sent successfully."
